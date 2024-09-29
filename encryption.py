@@ -47,11 +47,14 @@ def generate_aes_key():
     ./keys/aes_key.bin - file where generated data will be saved
     32 - length of random data to be generated; 32 bytes for 256-bit key
     '''
-    subprocess.run(['openssl', 'rand', '-out', './keys/aes_key.bin', '32'])
+    subprocess.run(['openssl', 'rand', '-out', './keys/aes_key.bin', '32'], check = True)
 
 def encrypt_aes_key():
     # Pull openssl password from environment variable
     password = os.getenv('PASSWORD')
+    if not password:
+        raise ValueError("Error: PASSWORD environment variable not set.")
+    
     '''
     Run commands using subprocess:
     openssl - command that launches OpenSSL program
@@ -64,10 +67,14 @@ def encrypt_aes_key():
     -k - flag telling OpenSSL that encryption key will be derived using password
     password - password extracted from environment variable
     '''
-    subprocess.run(['openssl', 'enc', '-aes-256-cbc', '-in', './keys/aes_key.bin', '-out', './keys/aes_key.enc', '-k', password])
+    subprocess.run(['openssl', 'enc', '-aes-256-cbc', '-in', './keys/aes_key.bin', '-out', './keys/aes_key.enc', '-k', password], check = True)
 
 def confirm_key_integrity():
+    # Pull openssl password from environment variable
     password = os.getenv('PASSWORD')
+    if not password:
+        raise ValueError("Error: PASSWORD environment variable not set.")
+    
     key_integrity = True
     
     # Check if encrypted key file exists
@@ -85,7 +92,7 @@ def confirm_key_integrity():
         key_integrity = False
     
     # Decrypt file to validate data
-    subprocess.run(['openssl', 'enc', '-aes-256-cbc', '-d', '-in', './keys/aes_key.enc', '-out', './keys/decrypted_key.bin', '-k', password])
+    subprocess.run(['openssl', 'enc', '-aes-256-cbc', '-d', '-in', './keys/aes_key.enc', '-out', './keys/decrypted_key.bin', '-k', password], check = True)
 
     # Check if decryption was successful
     if os.path.exists('./keys/decrypted_key.bin'):
@@ -114,6 +121,7 @@ def confirm_key_integrity():
 
     return key_integrity
 
+# Remove unencrypted AES key after sucessful encryption
 def remove_unencrypted_data():
     if os.path.exists('./keys/aes_key.bin'):
         os.remove('./keys/aes_key.bin')
