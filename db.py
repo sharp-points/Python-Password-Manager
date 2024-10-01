@@ -19,8 +19,7 @@ def initialize_database():
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS master_password (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            master_hash TEXT NOT NULL,
-            salt BLOB NOT NULL
+            master_hash TEXT NOT NULL
         )
     ''')
 
@@ -44,7 +43,7 @@ def store_password(service_url, username, password):
     # Insert information into database
     cursor.execute('''
         INSERT INTO stored_passwords (service_url, username, password)
-        VALUES (?, ?, ?, ?)
+        VALUES (?, ?, ?)
     ''', (service_url, username, password))
 
     # Commit and close connection
@@ -112,3 +111,48 @@ def retrieve_stored_information():
     connection.close()
 
     return rows
+
+def store_master_password_hash(password_hash):
+    # Create connection to SQLite database "password_manager.db"
+    connection = sqlite3.connect('password_manager.db')
+    cursor = connection.cursor()
+
+    cursor.execute('''
+        INSERT INTO master_password
+        (master_hash) VALUES (?)
+    ''', (password_hash,))
+
+    # Commit and close connection
+    connection.commit()
+    connection.close()
+
+def get_master_password_hash():
+    # Create connection to SQLite database "password_manager.db"
+    connection = sqlite3.connect('password_manager.db')
+    cursor = connection.cursor()
+
+    # Select password for given url and username
+    cursor.execute('''
+        SELECT master_hash
+        FROM master_password
+        WHERE id = 1
+    ''')
+
+    result = cursor.fetchone()
+    connection.close()
+
+    if result:
+        return result
+    else:
+        print(f"No password hash found.")
+    
+def is_first_time_use():
+    connection = sqlite3.connect('password_manager.db')
+    cursor = connection.cursor()
+
+    cursor.execute('SELECT COUNT(*) FROM master_password')
+    result = cursor.fetchone()
+    connection.close()
+
+    # Returns True if no master password exists
+    return result[0] == 0  

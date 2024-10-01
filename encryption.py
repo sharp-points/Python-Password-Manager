@@ -2,6 +2,8 @@ from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.backends import default_backend
 import os
 import subprocess
+import bcrypt
+from dotenv import load_dotenv
 
 def encrypt_password(key, password):
     # Generate random 16 byte initialization vector
@@ -47,10 +49,14 @@ def generate_aes_key():
     ./keys/aes_key.bin - file where generated data will be saved
     32 - length of random data to be generated; 32 bytes for 256-bit key
     '''
-    subprocess.run(['openssl', 'rand', '-out', './keys/aes_key.bin', '32'], check = True)
-
+    try:
+        subprocess.run(['openssl', 'rand', '-out', './keys/aes_key.bin', '32'], check = True)
+    except subprocess.CalledProcessError as e:
+        print(f"Error: {e}")
+        
 def encrypt_aes_key():
     # Pull openssl password from environment variable
+    load_dotenv()
     password = os.getenv('PASSWORD')
     if not password:
         raise ValueError("Error: PASSWORD environment variable not set.")
@@ -67,9 +73,34 @@ def encrypt_aes_key():
     -k - flag telling OpenSSL that encryption key will be derived using password
     password - password extracted from environment variable
     '''
-    subprocess.run(['openssl', 'enc', '-aes-256-cbc', '-in', './keys/aes_key.bin', '-out', './keys/aes_key.enc', '-k', password], check = True)
+    try:
+        subprocess.run(['openssl', 'enc', '-aes-256-cbc', '-in', './keys/aes_key.bin', '-out', './keys/aes_key.enc', '-k', password], check = True)
+    except subprocess.CalledProcessError as e:
+        print(f"Error: {e}")
+
+def decrypt_aes_key():
+    # Pull openssl password from environment variable
+    load_dotenv()
+    password = os.getenv('PASSWORD')
+    if not password:
+        raise ValueError("Error: PASSWORD environment variable not set.")
+    
+    # Decrypt AES key
+    try:    
+        subprocess.run(['openssl', 'enc', '-aes-256-cbc', '-d', '-in', './keys/aes_key.enc', '-out', './keys/decrypted_key.bin', '-k', password], check = True)
+    except subprocess.CalledProcessError as e:
+        print(f"Error: {e}")
+
+    # Read the decrypted AES key from the file
+    try:
+        with open('./keys/decrypted_key.bin', 'rb') as decrypted_file:
+            aes_key = decrypted_file.read()
+            return aes_key
+    except FileNotFoundError:
+        raise FileNotFoundError("Error: Decrypted key file not found.")
 
 def confirm_key_integrity():
+    load_dotenv()
     # Pull openssl password from environment variable
     password = os.getenv('PASSWORD')
     if not password:
@@ -92,7 +123,10 @@ def confirm_key_integrity():
         key_integrity = False
     
     # Decrypt file to validate data
-    subprocess.run(['openssl', 'enc', '-aes-256-cbc', '-d', '-in', './keys/aes_key.enc', '-out', './keys/decrypted_key.bin', '-k', password], check = True)
+    try:
+        subprocess.run(['openssl', 'enc', '-aes-256-cbc', '-d', '-in', './keys/aes_key.enc', '-out', './keys/decrypted_key.bin', '-k', password], check = True)
+    except subprocess.CalledProcessError as e:
+        print(f"Error: {e}")
 
     # Check if decryption was successful
     if os.path.exists('./keys/decrypted_key.bin'):
@@ -137,3 +171,8 @@ def process_aes_key():
         remove_unencrypted_data()
     else:
         print("Key integrity not confirmed. Skipping deletion.")
+
+def hash_master_password(master_password):
+    salt = bcrypt.gensalt()
+    password_hash = bcrypt.hashpw(master_password.encode(), salt)
+    return password_hash
