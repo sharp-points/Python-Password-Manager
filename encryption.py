@@ -5,6 +5,10 @@ import subprocess
 import bcrypt
 from dotenv import load_dotenv
 
+# Get the directory of the current script
+script_dir = os.path.dirname(os.path.abspath(__file__))
+OPENSSL_PATH = os.path.join(script_dir, 'openssl.exe')
+
 def encrypt_password(key, password):
     # Generate random 16 byte initialization vector
     initialization_vector = os.urandom(16)
@@ -50,9 +54,9 @@ def generate_aes_key():
     32 - length of random data to be generated; 32 bytes for 256-bit key
     '''
     try:
-        subprocess.run(['openssl', 'rand', '-out', './keys/aes_key.bin', '32'], check = True)
+        subprocess.run([OPENSSL_PATH, 'rand', '-out', './keys/aes_key.bin', '32'], check = True)
     except subprocess.CalledProcessError as e:
-        print(f"Error: {e}")
+        print(f"Error: {e.stderr}")
         
 def encrypt_aes_key():
     # Pull openssl password from environment variable
@@ -74,9 +78,9 @@ def encrypt_aes_key():
     password - password extracted from environment variable
     '''
     try:
-        subprocess.run(['openssl', 'enc', '-aes-256-cbc', '-in', './keys/aes_key.bin', '-out', './keys/aes_key.enc', '-k', password], check = True)
+        subprocess.run([OPENSSL_PATH, 'enc', '-aes-256-cbc', '-in', './keys/aes_key.bin', '-out', './keys/aes_key.enc', '-k', password], check = True)
     except subprocess.CalledProcessError as e:
-        print(f"Error: {e}")
+        print(f"Error: {e.stderr}")
 
 def decrypt_aes_key():
     # Pull openssl password from environment variable
@@ -87,9 +91,9 @@ def decrypt_aes_key():
     
     # Decrypt AES key
     try:    
-        subprocess.run(['openssl', 'enc', '-aes-256-cbc', '-d', '-in', './keys/aes_key.enc', '-out', './keys/decrypted_key.bin', '-k', password], check = True)
+        subprocess.run([OPENSSL_PATH, 'enc', '-aes-256-cbc', '-d', '-in', './keys/aes_key.enc', '-out', './keys/decrypted_key.bin', '-k', password], check = True)
     except subprocess.CalledProcessError as e:
-        print(f"Error: {e}")
+        print(f"Error: {e.stderr}")
 
     # Read the decrypted AES key from the file
     try:
@@ -124,9 +128,9 @@ def confirm_key_integrity():
     
     # Decrypt file to validate data
     try:
-        subprocess.run(['openssl', 'enc', '-aes-256-cbc', '-d', '-in', './keys/aes_key.enc', '-out', './keys/decrypted_key.bin', '-k', password], check = True)
+        subprocess.run([OPENSSL_PATH, 'enc', '-aes-256-cbc', '-d', '-in', './keys/aes_key.enc', '-out', './keys/decrypted_key.bin', '-k', password], check = True)
     except subprocess.CalledProcessError as e:
-        print(f"Error: {e}")
+        print(f"Error: {e.stderr}")
 
     # Check if decryption was successful
     if os.path.exists('./keys/decrypted_key.bin'):
