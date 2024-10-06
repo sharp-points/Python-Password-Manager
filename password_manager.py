@@ -1,93 +1,89 @@
-import db
 import getpass
-import encryption
 import bcrypt
 
-def first_time_setup():
-    print("Welcome! It looks like this is your first time using the program.")
 
-    master_password = getpass.getpass("Please set your master password.")
-    confirm_password = getpass.getpass("Enter again to confirm.")
+class PasswordManager:
+    def __init__(self, db_manager, encryption_handler):
+        self.db_manager = db_manager
+        self.encryption_handler = encryption_handler
 
-    if master_password == confirm_password:
-        master_hash = encryption.hash_master_password(master_password)
-        db.store_master_password_hash(master_hash)
-    else:
-        print("Passwords do not match. Try again.")
-        first_time_setup()
+    def first_time_setup(self):
+        print("Welcome! It looks like this is your first time using the program.")
 
+        master_password = getpass.getpass("Please set your master password: ")
+        confirm_password = getpass.getpass("Enter again to confirm: ")
 
-def authenticate_user():
-    # Fetch stored hash for master password
-    stored_tuple = db.get_master_password_hash()
-
-    stored_hash = stored_tuple[0]
-
-    # Ask the user for the master password
-    entered_password = getpass.getpass("Enter Master Password: ")
-
-    result = bcrypt.checkpw(entered_password.encode(), stored_hash)
-
-    if result:
-        print("Authentication successful.")
-        return True
-    else:
-        print("Authentication failed.")
-        return False
-
-def add_new_service():
-    service_url = input("Enter website URL: ")
-    username = input("Enter username/email: ")
-    raw_password = getpass.getpass("Enter password: ")
-
-    aes_key = encryption.decrypt_aes_key()
-
-    encrypted_password = encryption.encrypt_password(aes_key, raw_password)
-
-    encryption.remove_unencrypted_data()
-    aes_key = None
-
-    db.store_password(service_url, username, encrypted_password)
-    print(f"Password for {service_url} stored.")
-
-def get_password():
-    service_url = input("Enter website URL to retrieve password for: ")
-    username = input(f"Enter {service_url} username/email to retrieve password for: ")
-
-    aes_key = encryption.decrypt_aes_key()
-
-    encrypted_password = db.get_password(service_url, username)
+        if master_password == confirm_password:
+            master_hash = self.encryption_handler.hash_master_password(master_password)
+            self.db_manager.store_master_hash(master_hash)
+            print("Master password set successfully!")
+        else:
+            print("Passwords do not match. Please try again.")
+            self.first_time_setup()
     
-    if encrypted_password:
-        decrypted_password = encryption.decrypt_password(aes_key, encrypted_password)
-        print(f"Password for {service_url} username {username}: {decrypted_password}")
-    else:
-        print(f"No password found for {service_url} username {username}")
-        print("Make sure there are no typos in the URL or username and try again.")
+    def authenticate_user(self, entered_password):
+        stored_tuple = self.db_manager.get_master_hash()
+
+        if not stored_tuple:
+            print("No master password set.")
+            return False
+        
+        stored_hash = stored_tuple[0]
+
+        if bcrypt.checkpw(entered_password.encode(), stored_hash):
+            print("Authentication successful.")
+            return True
+        else:
+            print("Authentication failed.")
+            return False
+        
+    def add_service(self):
+        service = input("Enter service URL or name: ")
+        username = input("Enter username or email: ")
+        raw_password = getpass.getpass("Enter password: ")
+
+        encrypted_password = self.encryption_handler.encrypt(raw_password)
+
+        self.db_manager.store_password(service, username, encrypted_password)
+        print(f"Password for {service} stored.")
+
+    def get_password(self):
+        service = input("Enter service URL or name to retrieve password for: ")
+        username = input("Enter username or email to retrieve password for: ")
+
+        encrypted_password = self.db_manager.get_password(service, username)
+
+        if encrypted_password:
+            decrypted_password = self.encryption_handler.decrypt(encrypted_password)
+            print(f"Password for {service} (username {username}): {decrypted_password}")
+        else:
+            print(f"No password found for {service} and username {username}")
+            print("Make sure there are no typos in the service name or username and try again.")
     
-    encryption.remove_unencrypted_data()
-    aes_key = None
+    def delete_password(self):
+        service = input("Enter service URL or name to delete password for: ")
+        username = input("Enter username or email to delete password for: ")
 
-def delete_password():
-    service_url = input("Enter website URL to delete password for: ")
-    username = input(f"Enter {service_url} username/email to delete password for: ")
+        self.db_manager.delete_password(service, username)
+        print(f"Password for {service} with username {username} deleted.")
 
-    db.delete_password(service_url, username)
+    def update_password(self):
+        service = input("Enter service URL or name to update password for: ")
+        username = input("Enter username or email to update password for: ")
+        new_password = getpass.getpass("Enter new password: ")
 
-def update_password():
-    service_url = input("Enter website URL to update password for: ")
-    username = input(f"Enter {service_url} username/email to update password for: ")
-    password = getpass.getpass("Enter new password: ")
+        encrypted_password = self.encryption_handler.encrypt(new_password)
 
-    db.update_password(service_url, username, password)
+        self.db_manager.update_password(service, username, encrypted_password)
+        print(f"Password for {service} updated.")
 
-def list_services():
-    """List all stored services and usernames."""
-    stored_information = db.retrieve_stored_information()
+    def list_services(self):
+        stored_information = self.db_manager.retrieve_stored_information()
 
-    if stored_information:
-        print("\nStored services and usernames:")
-        for service_url, username in stored_information:
-            print(f"Service: {service_url} | Username: {username}")
-    else:
-        print("No services stored.")
+        if stored_information:
+            print("\nStored services and usernames:\n")
+
+            for service, username in stored_information:
+                print(f"Service: {service} | Username: {username}")
+        else:
+            print("No services stored.")
